@@ -11,16 +11,30 @@ class GroupsService {
     // Convertir a List<Map<String, dynamic>> para unificar el formato
     final grupos = List<Map<String, dynamic>>.from(response);
 
-    // Ordenar por nombre para mostrarlos en orden
-    grupos.sort(
-      (a, b) => a['nombre'].toString().compareTo(b['nombre'].toString()),
-    );
+    // Ordenar por número para mostrarlos en orden
+    grupos.sort((a, b) {
+      // Extraer el número del nombre (si existe)
+      int numA = _extraerNumeroDeGrupo(a['nombre'].toString());
+      int numB = _extraerNumeroDeGrupo(b['nombre'].toString());
+      return numA.compareTo(numB);
+    });
 
     return grupos;
   }
 
+  // Método auxiliar para extraer el número de un nombre de grupo
+  int _extraerNumeroDeGrupo(String nombre) {
+    // Si el formato es "Grupo X" o solo "X", intentar extraer X como número
+    if (nombre.startsWith('Grupo ')) {
+      final numStr = nombre.substring(6); // Omitir "Grupo "
+      return int.tryParse(numStr) ?? 0;
+    } else {
+      return int.tryParse(nombre) ?? 0;
+    }
+  }
+
   Future<Map<String, dynamic>> crearGrupo() async {
-    // Generar el siguiente nombre de grupo (A, B, C, etc.)
+    // Generar el siguiente nombre de grupo (1, 2, 3, etc.)
     final grupos = await cargarGrupos();
     final String nuevoNombre = _generarSiguienteNombreGrupo(grupos);
 
@@ -37,18 +51,28 @@ class GroupsService {
 
   String _generarSiguienteNombreGrupo(List<Map<String, dynamic>> grupos) {
     if (grupos.isEmpty) {
-      return 'A';
+      return 'Grupo 1';
     }
 
-    // Encontrar la última letra usada
-    final letrasUsadas = grupos.map((g) => g['nombre'].toString()).toList();
+    // Extraer los números de los grupos existentes
+    List<int> numerosUsados = grupos
+        .map((g) => _extraerNumeroDeGrupo(g['nombre'].toString()))
+        .toList();
 
-    // Encontrar la siguiente letra disponible
-    String letra = 'A';
-    while (letrasUsadas.contains(letra)) {
-      letra = String.fromCharCode(letra.codeUnitAt(0) + 1);
+    // Ordenar para facilitar la búsqueda del primer número faltante
+    numerosUsados.sort();
+
+    // Encontrar el primer número que falta en la secuencia
+    int siguienteNumero = 1;
+    for (int i = 0; i < numerosUsados.length; i++) {
+      if (numerosUsados[i] == siguienteNumero) {
+        siguienteNumero++;
+      } else if (numerosUsados[i] > siguienteNumero) {
+        // Encontramos un hueco en la secuencia
+        break;
+      }
     }
 
-    return letra;
+    return 'Grupo $siguienteNumero';
   }
 }

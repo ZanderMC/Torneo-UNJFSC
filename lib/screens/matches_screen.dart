@@ -177,51 +177,64 @@ class _MatchesScreenState extends State<MatchesScreen> {
     if (partidos.isEmpty) {
       return Expanded(
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                grupoSeleccionadoNombre != null
-                    ? "No hay partidos programados para el Grupo $grupoSeleccionadoNombre"
-                    : "Selecciona un grupo para ver sus partidos",
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                "Los partidos deben ser generados desde la sección de administración",
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-                textAlign: TextAlign.center,
-              ),
-            ],
+          child: Text(
+            grupoSeleccionadoNombre != null
+                ? "No hay partidos programados para el Grupo $grupoSeleccionadoNombre"
+                : "Selecciona un grupo para ver sus partidos",
           ),
         ),
       );
     }
 
-    // Ordenar partidos por estado y fecha
-    partidos.sort((a, b) {
-      // Si uno está finalizado y el otro no, el no finalizado va primero
-      if ((a['estado'] == 'Finalizado') != (b['estado'] == 'Finalizado')) {
-        return a['estado'] == 'Finalizado' ? 1 : -1;
+    // Agrupar partidos por jornada
+    Map<dynamic, List<Map<String, dynamic>>> partidosPorJornada = {};
+
+    for (var partido in partidos) {
+      final jornada = partido['jornada'] ?? 'Sin Jornada';
+      if (!partidosPorJornada.containsKey(jornada)) {
+        partidosPorJornada[jornada] = [];
       }
+      partidosPorJornada[jornada]!.add(partido);
+    }
 
-      // Si ambos tienen fecha, ordenar por fecha
-      if (a['fecha'] != null && b['fecha'] != null) {
-        return DateTime.parse(a['fecha']).compareTo(DateTime.parse(b['fecha']));
-      }
-
-      // Si solo uno tiene fecha, el que tiene fecha va primero
-      if (a['fecha'] != null) return -1;
-      if (b['fecha'] != null) return 1;
-
-      // Si ninguno tiene fecha, ordenar por ID
-      return (a['id'] ?? 0).compareTo(b['id'] ?? 0);
-    });
+    // Ordenar las jornadas numéricamente
+    List<dynamic> jornadas = partidosPorJornada.keys.toList()
+      ..sort((a, b) {
+        if (a == 'Sin Jornada') return 1;
+        if (b == 'Sin Jornada') return -1;
+        return a.compareTo(b);
+      });
 
     return Expanded(
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: partidos.length,
-        itemBuilder: (context, index) => _buildTarjetaPartido(partidos[index]),
+        itemCount: jornadas.length,
+        itemBuilder: (context, jornadaIndex) {
+          final jornada = jornadas[jornadaIndex];
+          final partidosDeJornada = partidosPorJornada[jornada]!;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Text(
+                  jornada == 'Sin Jornada'
+                      ? "Partidos sin jornada asignada"
+                      : "🗓 Jornada $jornada",
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              ...partidosDeJornada
+                  .map((partido) => _buildTarjetaPartido(partido))
+                  .toList(),
+              const SizedBox(height: 16),
+            ],
+          );
+        },
       ),
     );
   }

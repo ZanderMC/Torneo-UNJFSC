@@ -219,6 +219,188 @@ class _ManageTeamsState extends State<ManageTeams> {
     });
   }
 
+  Future<void> _eliminarUltimoGrupo() async {
+    try {
+      // Cargar todos los grupos
+      final grupos = await _groupsService.cargarGrupos();
+
+      if (grupos.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No hay grupos para eliminar')),
+        );
+        return;
+      }
+
+      // Tomar el último grupo creado (el último en la lista ordenada)
+      final ultimoGrupo = grupos.last;
+
+      // Mostrar diálogo de confirmación
+      final confirmar = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Eliminar grupo'),
+          content: Text(
+            '¿Estás seguro de eliminar el grupo "${ultimoGrupo['nombre']}"? '
+            'Esta acción eliminará también todos los equipos y partidos asociados.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text(
+                'Eliminar',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmar != true) return;
+
+      // Primero, eliminar partidos asociados a este grupo
+      await supabase.from('matches').delete().eq('grupo_id', ultimoGrupo['id']);
+
+      // Luego, eliminar equipos asociados a este grupo
+      await supabase.from('teams').delete().eq('grupo_id', ultimoGrupo['id']);
+
+      // Finalmente, eliminar el grupo
+      await supabase.from('grupos').delete().eq('id', ultimoGrupo['id']);
+
+      // Recargar datos para actualizar la interfaz
+      await _cargarDatos();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Grupo "${ultimoGrupo['nombre']}" eliminado correctamente',
+          ),
+        ),
+      );
+    } catch (e) {
+      print('Error al eliminar grupo: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al eliminar grupo: $e')));
+    }
+  }
+
+  Future<void> _mostrarConfiguracionEquipo(Map<String, dynamic> equipo) async {
+    // Controlador para el campo de texto con el nombre actual del equipo
+    final nombreController = TextEditingController(text: equipo['nombre']);
+
+    // Mostrar diálogo de configuración para el equipo
+    final accion = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Configurar equipo'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nombreController,
+              decoration: const InputDecoration(
+                labelText: 'Nombre del equipo',
+                border: OutlineInputBorder(),
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'borrar'),
+            child: const Text('Borrar', style: TextStyle(color: Colors.red)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'cancelar'),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, 'guardar'),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+
+    try {
+      if (accion == 'guardar' && nombreController.text.trim().isNotEmpty) {
+        // Guardar cambios en el nombre
+        if (nombreController.text != equipo['nombre']) {
+          await supabase
+              .from('teams')
+              .update({'nombre': nombreController.text})
+              .eq('id', equipo['id']);
+
+          // Recargar datos
+          await _cargarDatos();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Equipo actualizado correctamente')),
+          );
+        }
+      } else if (accion == 'borrar') {
+        // Confirmar eliminación
+        final confirmarBorrado = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Confirmar eliminación'),
+            content: Text(
+              '¿Estás seguro de eliminar el equipo "${equipo['nombre']}"? '
+              'Esta acción no se puede deshacer.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text(
+                  'Eliminar',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+        );
+
+        if (confirmarBorrado == true) {
+          // Primero, eliminar partidos donde participa este equipo
+          await supabase
+              .from('matches')
+              .delete()
+              .or(
+                'equipo_1_id.eq.${equipo['id']},equipo_2_id.eq.${equipo['id']}',
+              );
+
+          // Luego, eliminar el equipo
+          await supabase.from('teams').delete().eq('id', equipo['id']);
+
+          // Recargar datos
+          await _cargarDatos();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Equipo "${equipo['nombre']}" eliminado correctamente',
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error en configuración de equipo: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final equiposDelGrupo = _obtenerEquiposDeGrupoSeleccionado();
@@ -248,14 +430,27 @@ class _ManageTeamsState extends State<ManageTeams> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ElevatedButton.icon(
-                onPressed: _crearGrupo,
-                icon: const Icon(Icons.add),
-                label: const Text("Crear Nuevo Grupo"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _crearGrupo,
+                    icon: const Icon(Icons.add),
+                    label: const Text(''),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                    ),
+                  ),
+                  const SizedBox(width: 16), // Espacio entre botones
+                  ElevatedButton.icon(
+                    onPressed: _eliminarUltimoGrupo,
+                    icon: const Icon(Icons.delete),
+                    label: const Text(''),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                  ),
+                ],
               ),
 
               const SizedBox(height: 16),
@@ -357,7 +552,7 @@ class _ManageTeamsState extends State<ManageTeams> {
                         child: Padding(
                           padding: EdgeInsets.all(20.0),
                           child: Text(
-                            "No hay equipos en este grupo. A�ade uno para comenzar.",
+                            "No hay equipos en este grupo. A�de uno para comenzar.",
                           ),
                         ),
                       )
@@ -389,17 +584,10 @@ class _ManageTeamsState extends State<ManageTeams> {
                                     style: const TextStyle(fontSize: 16),
                                   ),
                                   IconButton(
-                                    icon: const Icon(
-                                      Icons.delete,
-                                      color: Colors.red,
-                                    ),
-                                    onPressed: () async {
-                                      await supabase
-                                          .from("teams")
-                                          .delete()
-                                          .eq("id", equipo["id"]);
-                                      await _cargarEquipos();
-                                    },
+                                    icon: const Icon(Icons.settings),
+                                    tooltip: 'Configurar equipo',
+                                    onPressed: () =>
+                                        _mostrarConfiguracionEquipo(equipo),
                                   ),
                                 ],
                               ),

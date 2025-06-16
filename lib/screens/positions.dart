@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:torneo_unjfsc/services/groups_service.dart';
-import 'package:torneo_unjfsc/services/teams_Services.dart';
+import 'package:torneo_unjfsc/services/groups_services.dart';
+import 'package:torneo_unjfsc/services/teams_services.dart';
+import 'package:torneo_unjfsc/services/matches_services.dart';
 
 class Positions extends StatefulWidget {
-  const Positions({super.key});
+  static const String routeName = '/positions';
+
+  const Positions({Key? key}) : super(key: key);
 
   @override
   State<Positions> createState() => _PositionsState();
@@ -12,20 +15,26 @@ class Positions extends StatefulWidget {
 
 class _PositionsState extends State<Positions> {
   final supabase = Supabase.instance.client;
+
   late GroupsService _groupsService;
   late TeamsServices _teamsService;
+  late MatchesServices _matchesService;
 
   List<Map<String, dynamic>> grupos = [];
   List<Map<String, dynamic>> equipos = [];
+  List<Map<String, dynamic>> partidos = [];
+
+  bool isLoading = true;
+
   dynamic grupoSeleccionadoId;
   String? grupoSeleccionadoNombre;
-  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _groupsService = GroupsService(supabase: supabase);
     _teamsService = TeamsServices(supabase: supabase);
+    _matchesService = MatchesServices(supabase: supabase);
     _cargarDatos();
   }
 
@@ -35,40 +44,28 @@ class _PositionsState extends State<Positions> {
     });
 
     try {
-      await _cargarGrupos();
-      await _cargarEquipos();
-    } finally {
+      final gruposData = await _groupsService.cargarGrupos();
+      final equiposData = await _teamsService.cargarEquipos();
+      final partidosData = await _matchesService.cargarPartidos();
+
+      setState(() {
+        grupos = gruposData;
+        equipos = equiposData;
+        partidos = partidosData;
+        isLoading = false;
+      });
+
+      // Si hay grupos, seleccionar el primero por defecto
+      if (grupos.isNotEmpty) {
+        _seleccionarGrupo(grupos[0]['id'], grupos[0]['nombre']);
+      }
+    } catch (e) {
       setState(() {
         isLoading = false;
       });
-    }
-  }
-
-  Future<void> _cargarGrupos() async {
-    try {
-      final gruposCargados = await _groupsService.cargarGrupos();
-
-      setState(() {
-        grupos = gruposCargados;
-
-        if (grupos.isNotEmpty && grupoSeleccionadoId == null) {
-          grupoSeleccionadoId = grupos.first["id"];
-          grupoSeleccionadoNombre = grupos.first["nombre"];
-        }
-      });
-    } catch (e) {
-      print("ERROR al cargar grupos: $e");
-    }
-  }
-
-  Future<void> _cargarEquipos() async {
-    try {
-      final equiposCargados = await _teamsService.cargarEquipos();
-      setState(() {
-        equipos = equiposCargados;
-      });
-    } catch (e) {
-      print("ERROR al cargar equipos: $e");
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al cargar datos: $e')));
     }
   }
 
@@ -79,153 +76,363 @@ class _PositionsState extends State<Positions> {
     });
   }
 
-  List<Map<String, dynamic>> _obtenerEquiposDeGrupoSeleccionado() {
-    return _teamsService.filtrarEquiposPorGrupo(equipos, grupoSeleccionadoId);
+  List<Map<String, dynamic>> _obtenerEquiposDeGrupo(dynamic grupoId) {
+    return equipos.where((equipo) {
+      return equipo['grupo_id'] != null &&
+          equipo['grupo_id'].toString() == grupoId.toString();
+    }).toList();
+  }
+
+  List<Map<String, dynamic>> _obtenerPartidosFinalizadosDeGrupo(
+    dynamic grupoId,
+  ) {
+    return partidos.where((partido) {
+      return partido['grupo_id'] != null &&
+          partido['grupo_id'].toString() == grupoId.toString() &&
+          partido['estado'] == 'Finalizado';
+    }).toList();
+  }
+
+  List<Map<String, dynamic>> _calcularTablaDeposiciones(dynamic grupoId) {
+    final equiposDelGrupo = _obtenerEquiposDeGrupo(grupoId);
+    final partidosFinalizados = _obtenerPartidosFinalizadosDeGrupo(grupoId);
+
+    // Crear estructura inicial para cada equipo
+    final Map<dynamic, Map<String, dynamic>> estadisticasEquipos = {};
+
+    for (var equipo in equiposDelGrupo) {
+      estadisticasEquipos[equipo['id']] = {
+        'id': equipo['id'],
+        'nombre': equipo['nombre'],
+        'jugados': 0,
+        'ganados': 0,
+        'empatados': 0,
+        'perdidos': 0,
+        'goles_favor': 0,
+        'goles_contra': 0,
+        'diferencia_goles': 0,
+        'puntos': 0,
+      };
+    }
+
+    // Calcular estadísticas basadas en partidos finalizados
+    for (var partido in partidosFinalizados) {
+      final equipo1Id = partido['equipo_1_id'];
+      final equipo2Id = partido['equipo_2_id'];
+      final goles1 = partido['goles_equipo_1'] ?? 0;
+      final goles2 = partido['goles_equipo_2'] ?? 0;
+
+      // Verificar que los equipos existan en nuestras estadísticas
+      if (!estadisticasEquipos.containsKey(equipo1Id) ||
+          !estadisticasEquipos.containsKey(equipo2Id)) {
+        continue;
+      }
+
+      // Actualizar estadísticas del equipo 1
+      estadisticasEquipos[equipo1Id]?['jugados'] += 1;
+      estadisticasEquipos[equipo1Id]?['goles_favor'] += goles1;
+      estadisticasEquipos[equipo1Id]?['goles_contra'] += goles2;
+
+      // Actualizar estadísticas del equipo 2
+      estadisticasEquipos[equipo2Id]?['jugados'] += 1;
+      estadisticasEquipos[equipo2Id]?['goles_favor'] += goles2;
+      estadisticasEquipos[equipo2Id]?['goles_contra'] += goles1;
+
+      // Determinar resultado (victoria, empate, derrota)
+      if (goles1 > goles2) {
+        // Equipo 1 gana
+        estadisticasEquipos[equipo1Id]?['ganados'] += 1;
+        estadisticasEquipos[equipo1Id]?['puntos'] += 2; // 2 puntos por victoria
+
+        estadisticasEquipos[equipo2Id]?['perdidos'] += 1;
+        // 0 puntos por derrota
+      } else if (goles1 < goles2) {
+        // Equipo 2 gana
+        estadisticasEquipos[equipo2Id]?['ganados'] += 1;
+        estadisticasEquipos[equipo2Id]?['puntos'] += 2; // 2 puntos por victoria
+
+        estadisticasEquipos[equipo1Id]?['perdidos'] += 1;
+        // 0 puntos por derrota
+      } else {
+        // Empate
+        estadisticasEquipos[equipo1Id]?['empatados'] += 1;
+        estadisticasEquipos[equipo1Id]?['puntos'] += 1; // 1 punto por empate
+
+        estadisticasEquipos[equipo2Id]?['empatados'] += 1;
+        estadisticasEquipos[equipo2Id]?['puntos'] += 1; // 1 punto por empate
+      }
+    }
+
+    // Calcular diferencia de goles
+    for (var equipo in estadisticasEquipos.values) {
+      equipo['diferencia_goles'] =
+          equipo['goles_favor'] - equipo['goles_contra'];
+    }
+
+    // Convertir a lista y ordenar por puntos (y si hay empate, por diferencia de goles)
+    final listaEquipos = estadisticasEquipos.values.toList();
+    listaEquipos.sort((a, b) {
+      // Primero ordenar por puntos (descendente)
+      final comparacionPuntos = b['puntos'].compareTo(a['puntos']);
+      if (comparacionPuntos != 0) return comparacionPuntos;
+
+      // Si hay empate en puntos, ordenar por diferencia de goles (descendente)
+      final comparacionDiferencia = b['diferencia_goles'].compareTo(
+        a['diferencia_goles'],
+      );
+      if (comparacionDiferencia != 0) return comparacionDiferencia;
+
+      // Si hay empate en diferencia, ordenar por goles a favor (descendente)
+      return b['goles_favor'].compareTo(a['goles_favor']);
+    });
+
+    return listaEquipos;
   }
 
   @override
   Widget build(BuildContext context) {
-    final equiposDelGrupo = _obtenerEquiposDeGrupoSeleccionado();
-
     return Scaffold(
+      appBar: AppBar(title: const Text('Tabla de Posiciones')),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                _buildGruposTabs(),
-                const SizedBox(height: 16),
-                _buildTablaPosiciones(equiposDelGrupo),
+                _buildGruposSelector(),
+                if (grupoSeleccionadoId != null)
+                  _buildTablaDeposiciones(
+                    _calcularTablaDeposiciones(grupoSeleccionadoId),
+                  ),
               ],
             ),
     );
   }
 
-  Widget _buildGruposTabs() {
+  Widget _buildGruposSelector() {
     return Container(
-      height: 50,
-      child: grupos.isEmpty
-          ? Center(child: Text("No hay grupos disponibles"))
-          : ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: grupos.length,
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              itemBuilder: (context, index) {
-                final grupo = grupos[index];
-                final id = grupo['id'];
-                final nombre = grupo['nombre'];
-                final isSelected =
-                    id.toString() == grupoSeleccionadoId.toString();
-
-                return Padding(
-                  padding: EdgeInsets.only(right: 8),
-                  child: ElevatedButton(
-                    onPressed: () => _seleccionarGrupo(id, nombre),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isSelected
-                          ? Colors.blue
-                          : Colors.grey[300],
-                      foregroundColor: isSelected ? Colors.white : Colors.black,
+      padding: const EdgeInsets.all(16),
+      color: Colors.grey[200],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Selecciona un grupo',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (var grupo in grupos)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(grupo['nombre']),
+                      selected: grupoSeleccionadoId == grupo['id'],
+                      onSelected: (selected) {
+                        if (selected) {
+                          _seleccionarGrupo(grupo['id'], grupo['nombre']);
+                        }
+                      },
                     ),
-                    child: Text("Grupo $nombre"),
                   ),
-                );
-              },
+              ],
             ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildTablaPosiciones(List<Map<String, dynamic>> equiposDelGrupo) {
-    if (equiposDelGrupo.isEmpty) {
+  Widget _buildTablaDeposiciones(List<Map<String, dynamic>> tablaEquipos) {
+    if (tablaEquipos.isEmpty) {
       return Expanded(
         child: Center(
-          child: Text(
-            grupoSeleccionadoNombre != null
-                ? "No hay equipos en el Grupo $grupoSeleccionadoNombre"
-                : "Selecciona un grupo para ver su tabla de posiciones",
-          ),
+          child: Text('No hay equipos en el Grupo $grupoSeleccionadoNombre'),
         ),
       );
     }
 
-    // Ordenar equipos por puntos (esto es solo un ejemplo)
-    equiposDelGrupo.sort(
-      (a, b) => (b['puntos'] ?? 0).compareTo(a['puntos'] ?? 0),
-    );
-
     return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "Tabla de posiciones - Grupo $grupoSeleccionadoNombre",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              'Tabla de Posiciones - Grupo $grupoSeleccionadoNombre',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            Table(
-              border: TableBorder.all(),
-              columnWidths: const {
-                0: FlexColumnWidth(1),
-                1: FlexColumnWidth(3),
-                2: FlexColumnWidth(1),
-                3: FlexColumnWidth(1),
-                4: FlexColumnWidth(1),
-                5: FlexColumnWidth(1),
-                6: FlexColumnWidth(1),
-              },
-              children: [
-                TableRow(
-                  decoration: BoxDecoration(color: Colors.grey[300]),
-                  children: [
-                    _buildTableCell("Pos", fontWeight: FontWeight.bold),
-                    _buildTableCell("Equipo", fontWeight: FontWeight.bold),
-                    _buildTableCell("PJ", fontWeight: FontWeight.bold),
-                    _buildTableCell("G", fontWeight: FontWeight.bold),
-                    _buildTableCell("E", fontWeight: FontWeight.bold),
-                    _buildTableCell("P", fontWeight: FontWeight.bold),
-                    _buildTableCell("Pts", fontWeight: FontWeight.bold),
-                  ],
-                ),
-                ...equiposDelGrupo.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final equipo = entry.value;
-                  return TableRow(
-                    decoration: BoxDecoration(
-                      color: index % 2 == 0 ? Colors.white : Colors.grey[100],
-                    ),
-                    children: [
-                      _buildTableCell("${index + 1}"),
-                      _buildTableCell(equipo['nombre'] ?? "Sin nombre"),
-                      _buildTableCell("${equipo['partidos_jugados'] ?? 0}"),
-                      _buildTableCell("${equipo['partidos_ganados'] ?? 0}"),
-                      _buildTableCell("${equipo['partidos_empatados'] ?? 0}"),
-                      _buildTableCell("${equipo['partidos_perdidos'] ?? 0}"),
-                      _buildTableCell(
-                        "${equipo['puntos'] ?? 0}",
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ],
-                  );
-                }).toList(),
-              ],
+            _buildTabla(tablaEquipos),
+            const SizedBox(height: 16),
+            const Text(
+              'Sistema de puntuación:',
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
+            const Text('• Victoria: 2 puntos'),
+            const Text('• Empate: 1 punto'),
+            const Text('• Derrota: 0 puntos'),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTableCell(
-    String text, {
-    FontWeight fontWeight = FontWeight.normal,
-  }) {
+  Widget _buildTabla(List<Map<String, dynamic>> tablaEquipos) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-      child: Text(
-        text,
-        style: TextStyle(fontWeight: fontWeight),
-        textAlign: TextAlign.center,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          // Encabezado de la tabla simplificada
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            decoration: BoxDecoration(
+              color: Colors.blue[700],
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(7),
+                topRight: Radius.circular(7),
+              ),
+            ),
+            child: Row(
+              children: const [
+                SizedBox(
+                  width: 40,
+                  child: Text(
+                    'Pos',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 4,
+                  child: Text(
+                    'Equipo',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 40,
+                  child: Text(
+                    '   PJ',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 40,
+                  child: Text(
+                    '   DG',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 40,
+                  child: Text(
+                    '   Pts',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Filas de equipos simplificadas
+          ...tablaEquipos.asMap().entries.map((entry) {
+            final index = entry.key;
+            final equipo = entry.value;
+            final posicion = index + 1;
+
+            // Color de fondo alternado para mejor legibilidad
+            final backgroundColor = index % 2 == 0
+                ? Colors.white
+                : Colors.grey[50];
+
+            return Container(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                // Borde inferior para todas las filas excepto la última
+                border: index < tablaEquipos.length - 1
+                    ? Border(bottom: BorderSide(color: Colors.grey[300]!))
+                    : null,
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 40,
+                    child: Text(
+                      '$posicion',
+                      style: TextStyle(
+                        fontWeight: posicion <= 3
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: posicion <= 3 ? Colors.blue[700] : null,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 4,
+                    child: Text(
+                      equipo['nombre'],
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontWeight: posicion <= 3
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 40,
+                    child: Text(
+                      '${equipo['jugados']}',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  SizedBox(
+                    width: 40,
+                    child: Text(
+                      '${equipo['diferencia_goles']}',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: equipo['diferencia_goles'] > 0
+                            ? Colors.green
+                            : equipo['diferencia_goles'] < 0
+                            ? Colors.red
+                            : null,
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 40,
+                    child: Text(
+                      '${equipo['puntos']}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ],
       ),
     );
   }
