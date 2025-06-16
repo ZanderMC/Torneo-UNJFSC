@@ -116,7 +116,7 @@ class MatchesServices {
             'equipo_1_id': equipoA['id'],
             'equipo_2_id': equipoB['id'],
             'grupo_id': grupoId,
-            'estado': 'Programado',
+            'estado': 'Por Definirse',
             'fecha': null,
             'goles_equipo_1': null,
             'goles_equipo_2': null,

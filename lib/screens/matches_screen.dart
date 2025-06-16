@@ -13,7 +13,7 @@ class MatchesScreen extends StatefulWidget {
 
 class _MatchesScreenState extends State<MatchesScreen> {
   final supabase = Supabase.instance.client;
-  late GroupsService _groupsService;
+  late GroupsServices _groupsService;
   late TeamsServices _teamsService;
   late MatchesServices _matchesService;
 
@@ -27,7 +27,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
   @override
   void initState() {
     super.initState();
-    _groupsService = GroupsService(supabase: supabase);
+    _groupsService = GroupsServices(supabase: supabase);
     _teamsService = TeamsServices(supabase: supabase);
     _matchesService = MatchesServices(supabase: supabase);
     _cargarDatos();
@@ -141,13 +141,13 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
   Widget _buildGruposTabs() {
     return Container(
-      height: 50,
+      height: 60,
       child: grupos.isEmpty
           ? const Center(child: Text("No hay grupos disponibles"))
           : ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: grupos.length,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               itemBuilder: (context, index) {
                 final grupo = grupos[index];
                 final id = grupo['id'];
@@ -156,16 +156,20 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     id.toString() == grupoSeleccionadoId.toString();
 
                 return Padding(
-                  padding: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 5,
+                  ),
                   child: ElevatedButton(
                     onPressed: () => _seleccionarGrupo(id, nombre),
+
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isSelected
                           ? Colors.blue
                           : Colors.grey[300],
                       foregroundColor: isSelected ? Colors.white : Colors.black,
                     ),
-                    child: Text("Grupo $nombre"),
+                    child: Text(" $nombre"),
                   ),
                 );
               },
@@ -217,7 +221,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                padding: const EdgeInsets.symmetric(vertical: 1.0),
                 child: Text(
                   jornada == 'Sin Jornada'
                       ? "Partidos sin jornada asignada"
@@ -243,26 +247,13 @@ class _MatchesScreenState extends State<MatchesScreen> {
     final equipoLocal = _obtenerNombreEquipo(partido['equipo_1_id']);
     final equipoVisitante = _obtenerNombreEquipo(partido['equipo_2_id']);
 
-    String fecha = "Sin programar";
-    if (partido['fecha'] != null) {
-      try {
-        final fechaPartido = DateTime.parse(partido['fecha']);
-        // Formato simple sin necesidad de importar intl
-        fecha =
-            "${fechaPartido.day}/${fechaPartido.month}/${fechaPartido.year}";
-      } catch (e) {
-        fecha = "Fecha no disponible";
-      }
-    }
-
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 14),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(10),
         child: Column(
           children: [
-            Text(fecha),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

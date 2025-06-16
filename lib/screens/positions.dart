@@ -16,7 +16,7 @@ class Positions extends StatefulWidget {
 class _PositionsState extends State<Positions> {
   final supabase = Supabase.instance.client;
 
-  late GroupsService _groupsService;
+  late GroupsServices _groupsService;
   late TeamsServices _teamsService;
   late MatchesServices _matchesService;
 
@@ -32,7 +32,7 @@ class _PositionsState extends State<Positions> {
   @override
   void initState() {
     super.initState();
-    _groupsService = GroupsService(supabase: supabase);
+    _groupsService = GroupsServices(supabase: supabase);
     _teamsService = TeamsServices(supabase: supabase);
     _matchesService = MatchesServices(supabase: supabase);
     _cargarDatos();
@@ -192,12 +192,11 @@ class _PositionsState extends State<Positions> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Tabla de Posiciones')),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                _buildGruposSelector(),
+                _buildGruposTabs(),
                 if (grupoSeleccionadoId != null)
                   _buildTablaDeposiciones(
                     _calcularTablaDeposiciones(grupoSeleccionadoId),
@@ -207,40 +206,41 @@ class _PositionsState extends State<Positions> {
     );
   }
 
-  Widget _buildGruposSelector() {
+  Widget _buildGruposTabs() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      color: Colors.grey[200],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Selecciona un grupo',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (var grupo in grupos)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(grupo['nombre']),
-                      selected: grupoSeleccionadoId == grupo['id'],
-                      onSelected: (selected) {
-                        if (selected) {
-                          _seleccionarGrupo(grupo['id'], grupo['nombre']);
-                        }
-                      },
-                    ),
+      height: 60,
+      child: grupos.isEmpty
+          ? const Center(child: Text("No hay grupos disponibles"))
+          : ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: grupos.length,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              itemBuilder: (context, index) {
+                final grupo = grupos[index];
+                final id = grupo['id'];
+                final nombre = grupo['nombre'];
+                final isSelected =
+                    id.toString() == grupoSeleccionadoId.toString();
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 5,
                   ),
-              ],
+                  child: ElevatedButton(
+                    onPressed: () => _seleccionarGrupo(id, nombre),
+
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isSelected
+                          ? Colors.blue
+                          : Colors.grey[300],
+                      foregroundColor: isSelected ? Colors.white : Colors.black,
+                    ),
+                    child: Text(" $nombre"),
+                  ),
+                );
+              },
             ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -260,7 +260,7 @@ class _PositionsState extends State<Positions> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Tabla de Posiciones - Grupo $grupoSeleccionadoNombre',
+              'Tabla de Posiciones -  $grupoSeleccionadoNombre',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
@@ -322,7 +322,7 @@ class _PositionsState extends State<Positions> {
                 SizedBox(
                   width: 40,
                   child: Text(
-                    '   PJ',
+                    'PJ',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -332,7 +332,7 @@ class _PositionsState extends State<Positions> {
                 SizedBox(
                   width: 40,
                   child: Text(
-                    '   DG',
+                    'DG',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -342,7 +342,7 @@ class _PositionsState extends State<Positions> {
                 SizedBox(
                   width: 40,
                   child: Text(
-                    '   Pts',
+                    'Pts',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -353,7 +353,7 @@ class _PositionsState extends State<Positions> {
             ),
           ),
 
-          // Filas de equipos simplificadas
+          // Filas de equipos simplificadas (sin resaltado especial)
           ...tablaEquipos.asMap().entries.map((entry) {
             final index = entry.key;
             final equipo = entry.value;
@@ -375,28 +375,14 @@ class _PositionsState extends State<Positions> {
               ),
               child: Row(
                 children: [
-                  SizedBox(
-                    width: 40,
-                    child: Text(
-                      '$posicion',
-                      style: TextStyle(
-                        fontWeight: posicion <= 3
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                        color: posicion <= 3 ? Colors.blue[700] : null,
-                      ),
-                    ),
-                  ),
+                  // Posición (sin resaltado especial)
+                  SizedBox(width: 40, child: Text('$posicion')),
+                  // Nombre del equipo (sin resaltado especial)
                   Expanded(
                     flex: 4,
                     child: Text(
                       equipo['nombre'],
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: posicion <= 3
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
                     ),
                   ),
                   SizedBox(

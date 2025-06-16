@@ -1,9 +1,9 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class GroupsService {
+class GroupsServices {
   final SupabaseClient supabase;
 
-  GroupsService({required this.supabase});
+  GroupsServices({required this.supabase});
 
   Future<List<Map<String, dynamic>>> cargarGrupos() async {
     final response = await supabase.from('grupos').select();

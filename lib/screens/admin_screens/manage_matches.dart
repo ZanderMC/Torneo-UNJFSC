@@ -17,7 +17,7 @@ class ManageMatches extends StatefulWidget {
 class _ManageMatchesState extends State<ManageMatches> {
   final supabase = Supabase.instance.client;
 
-  late GroupsService _groupsService;
+  late GroupsServices _groupsService;
   late TeamsServices _teamsService;
   late MatchesServices _matchesService;
 
@@ -33,7 +33,7 @@ class _ManageMatchesState extends State<ManageMatches> {
   @override
   void initState() {
     super.initState();
-    _groupsService = GroupsService(supabase: supabase);
+    _groupsService = GroupsServices(supabase: supabase);
     _teamsService = TeamsServices(supabase: supabase);
     _matchesService = MatchesServices(supabase: supabase);
     _cargarDatos();
@@ -98,14 +98,17 @@ class _ManageMatchesState extends State<ManageMatches> {
     Map<String, dynamic> partido,
     int golesEquipo1,
     int golesEquipo2,
+    int? golesEquipo1Raw,
+    int? golesEquipo2Raw,
+    String estado,
   ) async {
     try {
       await supabase
           .from('matches')
           .update({
-            'goles_equipo_1': golesEquipo1,
-            'goles_equipo_2': golesEquipo2,
-            'estado': 'Finalizado',
+            'goles_equipo_1': golesEquipo1Raw,
+            'goles_equipo_2': golesEquipo2Raw,
+            'estado': estado,
           })
           .eq('id', partido['id']);
 
@@ -113,14 +116,20 @@ class _ManageMatchesState extends State<ManageMatches> {
       setState(() {
         final index = partidos.indexWhere((p) => p['id'] == partido['id']);
         if (index != -1) {
-          partidos[index]['goles_equipo_1'] = golesEquipo1;
-          partidos[index]['goles_equipo_2'] = golesEquipo2;
-          partidos[index]['estado'] = 'Finalizado';
+          partidos[index]['goles_equipo_1'] = golesEquipo1Raw;
+          partidos[index]['goles_equipo_2'] = golesEquipo2Raw;
+          partidos[index]['estado'] = estado;
         }
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Marcador actualizado correctamente')),
+        SnackBar(
+          content: Text(
+            estado == 'Programado'
+                ? 'Partido reiniciado correctamente'
+                : 'Marcador actualizado correctamente',
+          ),
+        ),
       );
     } catch (e) {
       print('Error al actualizar marcador: $e');
@@ -140,105 +149,134 @@ class _ManageMatchesState extends State<ManageMatches> {
       text: partido['goles_equipo_2']?.toString() ?? '',
     );
 
+    // Variable para controlar el estado del partido
+    String estadoPartido = partido['estado'] ?? 'Programado';
+
     // Nombres de los equipos
     final nombreEquipo1 = _obtenerNombreEquipo(partido['equipo_1_id']);
     final nombreEquipo2 = _obtenerNombreEquipo(partido['equipo_2_id']);
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Editar Marcador'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '$nombreEquipo1 vs $nombreEquipo2',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Row(
+      builder: (context) => StatefulBuilder(
+        // Usar StatefulBuilder para actualizar el estado dentro del diálogo
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Editar Marcador'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: Column(
-                    children: [
-                      Text(nombreEquipo1, textAlign: TextAlign.center),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: golesEquipo1Controller,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        textAlign: TextAlign.center,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 12,
-                          ),
-                        ),
-                      ),
-                    ],
+                Text(
+                  '$nombreEquipo1 vs $nombreEquipo2',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Estado: $estadoPartido',
+                  style: TextStyle(
+                    color: estadoPartido == 'Finalizado'
+                        ? Colors.green
+                        : Colors.orange,
+                    fontStyle: FontStyle.italic,
                   ),
                 ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Text('-', style: TextStyle(fontSize: 24)),
-                ),
-                Expanded(
-                  child: Column(
-                    children: [
-                      Text(nombreEquipo2, textAlign: TextAlign.center),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: golesEquipo2Controller,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        textAlign: TextAlign.center,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 12,
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Text(nombreEquipo1, textAlign: TextAlign.center),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: golesEquipo1Controller,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            textAlign: TextAlign.center,
+                            decoration: InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 12,
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text('-', style: TextStyle(fontSize: 24)),
+                    ),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Text(nombreEquipo2, textAlign: TextAlign.center),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: golesEquipo2Controller,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            textAlign: TextAlign.center,
+                            decoration: InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              // Restaurar a 0-0
-              golesEquipo1Controller.text = '0';
-              golesEquipo2Controller.text = '0';
-            },
-            child: const Text('Restaurar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // Obtener valores y validar
-              final goles1 = int.tryParse(golesEquipo1Controller.text) ?? 0;
-              final goles2 = int.tryParse(golesEquipo2Controller.text) ?? 0;
+            actions: [
+              TextButton(
+                onPressed: () {
+                  // Restaurar a 0-0 y cambiar estado a Programado
+                  setState(() {
+                    golesEquipo1Controller.text = '';
+                    golesEquipo2Controller.text = '';
+                    estadoPartido = 'Programado';
+                  });
+                },
+                child: const Text('Restaurar'),
+                style: TextButton.styleFrom(foregroundColor: Colors.orange),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  // Obtener valores y validar
+                  final goles1 = int.tryParse(golesEquipo1Controller.text) ?? 0;
+                  final goles2 = int.tryParse(golesEquipo2Controller.text) ?? 0;
 
-              // Actualizar marcador
-              _actualizarMarcador(partido, goles1, goles2);
+                  // Actualizar marcador con el estado actual
+                  _actualizarMarcador(
+                    partido,
+                    goles1,
+                    goles2,
+                    golesEquipo1Controller.text.isEmpty ? null : goles1,
+                    golesEquipo2Controller.text.isEmpty ? null : goles2,
+                    estadoPartido,
+                  );
 
-              Navigator.pop(context);
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
+                  Navigator.pop(context);
+                },
+                child: const Text('Guardar'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -251,47 +289,48 @@ class _ManageMatchesState extends State<ManageMatches> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                _buildGruposSelector(),
+                _buildGruposTabs(),
                 _buildListaPartidos(_obtenerPartidosDeGrupoSeleccionado()),
               ],
             ),
     );
   }
 
-  Widget _buildGruposSelector() {
+  Widget _buildGruposTabs() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      color: Colors.grey[200],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Selecciona un grupo',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (var grupo in grupos)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(grupo['nombre']),
-                      selected: grupoSeleccionadoId == grupo['id'],
-                      onSelected: (selected) {
-                        if (selected) {
-                          _seleccionarGrupo(grupo['id'], grupo['nombre']);
-                        }
-                      },
-                    ),
+      height: 60,
+      child: grupos.isEmpty
+          ? const Center(child: Text("No hay grupos disponibles"))
+          : ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: grupos.length,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              itemBuilder: (context, index) {
+                final grupo = grupos[index];
+                final id = grupo['id'];
+                final nombre = grupo['nombre'];
+                final isSelected =
+                    id.toString() == grupoSeleccionadoId.toString();
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 5,
                   ),
-              ],
+                  child: ElevatedButton(
+                    onPressed: () => _seleccionarGrupo(id, nombre),
+
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isSelected
+                          ? Colors.blue
+                          : Colors.grey[300],
+                      foregroundColor: isSelected ? Colors.white : Colors.black,
+                    ),
+                    child: Text(" $nombre"),
+                  ),
+                );
+              },
             ),
-          ),
-        ],
-      ),
     );
   }
 

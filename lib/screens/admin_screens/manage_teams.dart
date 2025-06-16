@@ -14,7 +14,7 @@ class ManageTeams extends StatefulWidget {
 // Agregar este método para generar partidos
 class _ManageTeamsState extends State<ManageTeams> {
   final supabase = Supabase.instance.client;
-  late GroupsService _groupsService;
+  late GroupsServices _groupsService;
   late TeamsServices _teamsService;
   late MatchesServices _matchesService;
   bool isGenerating = false;
@@ -29,7 +29,7 @@ class _ManageTeamsState extends State<ManageTeams> {
   @override
   void initState() {
     super.initState();
-    _groupsService = GroupsService(supabase: supabase);
+    _groupsService = GroupsServices(supabase: supabase);
     _teamsService = TeamsServices(supabase: supabase);
     _matchesService = MatchesServices(supabase: supabase); // Agregar esta línea
     _cargarDatos();
@@ -408,21 +408,7 @@ class _ManageTeamsState extends State<ManageTeams> {
     print("Renderizando con ${grupos.length} grupos");
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Grupos y Equipos"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              _cargarDatos();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Actualizando datos...")),
-              );
-            },
-            tooltip: "Actualizar datos",
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text("Grupos y Equipos")),
       body: RefreshIndicator(
         onRefresh: _cargarDatos,
         child: SingleChildScrollView(
@@ -431,8 +417,14 @@ class _ManageTeamsState extends State<ManageTeams> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  const Text(
+                    "Grupos:",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(width: 10),
+                  Text("(${grupos.length} grupos)"),
+                  const SizedBox(width: 36),
                   ElevatedButton.icon(
                     onPressed: _crearGrupo,
                     icon: const Icon(Icons.add),
@@ -450,19 +442,6 @@ class _ManageTeamsState extends State<ManageTeams> {
                       backgroundColor: Colors.red,
                     ),
                   ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              Row(
-                children: [
-                  const Text(
-                    "Grupos:",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(width: 10),
-                  Text("(${grupos.length} grupos)"),
                 ],
               ),
               const SizedBox(height: 10),
@@ -533,7 +512,7 @@ class _ManageTeamsState extends State<ManageTeams> {
                         backgroundColor: Colors.green,
                         foregroundColor: Colors.white,
                       ),
-                      child: const Text("A�adir"),
+                      child: const Text("Añadir"),
                     ),
                   ],
                 ),
@@ -552,7 +531,7 @@ class _ManageTeamsState extends State<ManageTeams> {
                         child: Padding(
                           padding: EdgeInsets.all(20.0),
                           child: Text(
-                            "No hay equipos en este grupo. A�de uno para comenzar.",
+                            "No hay equipos en este grupo. Añde uno para comenzar.",
                           ),
                         ),
                       )
@@ -567,12 +546,12 @@ class _ManageTeamsState extends State<ManageTeams> {
                             child: Container(
                               alignment: Alignment.centerLeft,
                               padding: const EdgeInsets.symmetric(
-                                vertical: 16,
+                                vertical: 8,
                                 horizontal: 16,
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.grey[200],
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(25),
                                 border: Border.all(color: Colors.grey.shade400),
                               ),
                               child: Row(
