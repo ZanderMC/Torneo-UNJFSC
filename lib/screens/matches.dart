@@ -14,7 +14,7 @@ class Matches extends StatefulWidget {
 class _MatchesState extends State<Matches> {
   int _selectedIndex = 0;
 
-  static final List<Widget> _screens = [
+  List<Widget> get _screens => [
     const MatchesScreen(),
     const Positions(),
     const Admin(),
@@ -25,29 +25,32 @@ class _MatchesState extends State<Matches> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Torneo UNJFSC'),
-        backgroundColor: Colors.blueAccent,
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
       ),
       body: _screens[_selectedIndex],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
-            BoxShadow(blurRadius: 20, color: Colors.black.withOpacity(.1)),
+            BoxShadow(blurRadius: 20, color: Colors.black.withOpacity(.05)),
           ],
         ),
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 8),
             child: GNav(
-              rippleColor: Colors.grey[300]!,
-              hoverColor: Colors.grey[100]!,
+              rippleColor: Colors.blue[50]!,
+              hoverColor: Colors.blue[100]!,
               gap: 8,
               activeColor: Colors.white,
               iconSize: 24,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               duration: const Duration(milliseconds: 400),
-              tabBackgroundColor: Colors.blue,
-              color: Colors.black,
+              tabBackgroundColor: Colors.blue[700]!,
+              color: Colors.blue[700],
               tabs: const [
                 GButton(icon: Icons.sports_soccer, text: 'Encuentros'),
                 GButton(icon: Icons.table_rows_rounded, text: 'Posiciones'),

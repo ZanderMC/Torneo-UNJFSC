@@ -408,11 +408,11 @@ class _ManageTeamsState extends State<ManageTeams> {
     print("Renderizando con ${grupos.length} grupos");
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Grupos y Equipos")),
-      body: RefreshIndicator(
-        onRefresh: _cargarDatos,
+      appBar: AppBar(title: const Text("Grupos y Equipos"), centerTitle: true),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

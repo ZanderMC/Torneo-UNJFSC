@@ -192,17 +192,23 @@ class _PositionsState extends State<Positions> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                _buildGruposTabs(),
-                if (grupoSeleccionadoId != null)
-                  _buildTablaDeposiciones(
-                    _calcularTablaDeposiciones(grupoSeleccionadoId),
-                  ),
-              ],
-            ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: RefreshIndicator(
+        onRefresh: _cargarDatos,
+        child: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                children: [
+                  _buildGruposTabs(),
+                  if (grupoSeleccionadoId != null)
+                    Expanded(
+                      child: _buildTablaDeposiciones(
+                        _calcularTablaDeposiciones(grupoSeleccionadoId),
+                      ),
+                    ),
+                ],
+              ),
+      ),
     );
   }
 
@@ -214,7 +220,7 @@ class _PositionsState extends State<Positions> {
           : ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: grupos.length,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
               itemBuilder: (context, index) {
                 final grupo = grupos[index];
                 final id = grupo['id'];
@@ -228,8 +234,9 @@ class _PositionsState extends State<Positions> {
                     vertical: 5,
                   ),
                   child: ElevatedButton(
-                    onPressed: () => _seleccionarGrupo(id, nombre),
-
+                    onPressed: () {
+                      _seleccionarGrupo(id, nombre);
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isSelected
                           ? Colors.blue
@@ -246,35 +253,30 @@ class _PositionsState extends State<Positions> {
 
   Widget _buildTablaDeposiciones(List<Map<String, dynamic>> tablaEquipos) {
     if (tablaEquipos.isEmpty) {
-      return Expanded(
-        child: Center(
-          child: Text('No hay equipos en el Grupo $grupoSeleccionadoNombre'),
-        ),
+      return Center(
+        child: Text('No hay equipos en el Grupo $grupoSeleccionadoNombre'),
       );
     }
-
-    return Expanded(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Tabla de Posiciones -  $grupoSeleccionadoNombre',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            _buildTabla(tablaEquipos),
-            const SizedBox(height: 16),
-            const Text(
-              'Sistema de puntuación:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const Text('• Victoria: 2 puntos'),
-            const Text('• Empate: 1 punto'),
-            const Text('• Derrota: 0 puntos'),
-          ],
-        ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Tabla de Posiciones -  $grupoSeleccionadoNombre',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          _buildTabla(tablaEquipos),
+          const SizedBox(height: 16),
+          const Text(
+            'Sistema de puntuación:',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const Text('• Victoria: 2 puntos'),
+          const Text('• Empate: 1 punto'),
+          const Text('• Derrota: 0 puntos'),
+        ],
       ),
     );
   }

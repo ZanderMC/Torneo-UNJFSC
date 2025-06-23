@@ -8,38 +8,55 @@ class AdminMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Panel de administración")),
+      appBar: AppBar(
+        title: const Text("Panel de administración"),
+        centerTitle: true,
+      ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text(
               "Bienvenido al panel de administración",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue,
+              ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
-            const Text("Aquí puedes gestionar los datos del torneo."),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ManageTeams()),
-                );
-              },
-              child: const Text("Administrar Equipos"),
+            const Text(
+              "Aquí puedes gestionar los datos del torneo.",
+              style: TextStyle(color: Colors.black54),
             ),
-            SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ManageMatches(),
-                  ),
-                );
-              },
-              child: const Text("Administrar Partidos"),
+            const SizedBox(height: 30),
+            SizedBox(
+              width: 220,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => ManageTeams()),
+                  );
+                },
+                child: const Text("Administrar Equipos"),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: 220,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ManageMatches(),
+                    ),
+                  );
+                },
+                child: const Text("Administrar Partidos"),
+              ),
             ),
           ],
         ),

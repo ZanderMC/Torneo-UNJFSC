@@ -124,6 +124,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     final partidosDelGrupo = _obtenerPartidosDeGrupoSeleccionado();
 
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: RefreshIndicator(
         onRefresh: _cargarDatos,
         child: isLoading
@@ -147,7 +148,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
           : ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: grupos.length,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
               itemBuilder: (context, index) {
                 final grupo = grupos[index];
                 final id = grupo['id'];
@@ -243,9 +244,18 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
+  // Actualizar _buildTarjetaPartido para mostrar la fecha
   Widget _buildTarjetaPartido(Map<String, dynamic> partido) {
     final equipoLocal = _obtenerNombreEquipo(partido['equipo_1_id']);
     final equipoVisitante = _obtenerNombreEquipo(partido['equipo_2_id']);
+
+    // Formatear fecha si existe
+    String fechaFormateada = '';
+    if (partido['fecha_partido'] != null) {
+      final fecha = DateTime.parse(partido['fecha_partido']);
+      fechaFormateada =
+          '${fecha.day}/${fecha.month}/${fecha.year} - ${fecha.hour.toString().padLeft(2, '0')}:${fecha.minute.toString().padLeft(2, '0')}';
+    }
 
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
@@ -253,7 +263,25 @@ class _MatchesScreenState extends State<MatchesScreen> {
         padding: const EdgeInsets.all(10),
         child: Column(
           children: [
-            const SizedBox(height: 8),
+            // Si hay fecha, mostrarla
+            if (partido['fecha_partido'] != null) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.calendar_today, size: 16, color: Colors.blue),
+                  const SizedBox(width: 4),
+                  Text(
+                    fechaFormateada,
+                    style: TextStyle(
+                      color: Colors.blue[800],
+                      fontWeight: FontWeight.w500,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

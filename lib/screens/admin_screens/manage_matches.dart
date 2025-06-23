@@ -122,6 +122,9 @@ class _ManageMatchesState extends State<ManageMatches> {
         }
       });
 
+      // Refrescar datos para que posiciones y partidos se actualicen
+      await _cargarDatos();
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -166,10 +169,6 @@ class _ManageMatchesState extends State<ManageMatches> {
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  '$nombreEquipo1 vs $nombreEquipo2',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
                 const SizedBox(height: 8),
                 Text(
                   'Estado: $estadoPartido',
@@ -256,20 +255,22 @@ class _ManageMatchesState extends State<ManageMatches> {
               ),
               ElevatedButton(
                 onPressed: () {
-                  // Obtener valores y validar
                   final goles1 = int.tryParse(golesEquipo1Controller.text) ?? 0;
                   final goles2 = int.tryParse(golesEquipo2Controller.text) ?? 0;
-
-                  // Actualizar marcador con el estado actual
+                  // Si se ingresó algún marcador, el estado debe ser Finalizado
+                  final nuevoEstado =
+                      (golesEquipo1Controller.text.isNotEmpty ||
+                          golesEquipo2Controller.text.isNotEmpty)
+                      ? 'Finalizado'
+                      : estadoPartido;
                   _actualizarMarcador(
                     partido,
                     goles1,
                     goles2,
                     golesEquipo1Controller.text.isEmpty ? null : goles1,
                     golesEquipo2Controller.text.isEmpty ? null : goles2,
-                    estadoPartido,
+                    nuevoEstado,
                   );
-
                   Navigator.pop(context);
                 },
                 child: const Text('Guardar'),
@@ -284,7 +285,11 @@ class _ManageMatchesState extends State<ManageMatches> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Administrar Partidos')),
+      appBar: AppBar(
+        title: const Text('Administrar Partidos'),
+        centerTitle: true,
+      ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
@@ -304,7 +309,7 @@ class _ManageMatchesState extends State<ManageMatches> {
           : ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: grupos.length,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
               itemBuilder: (context, index) {
                 final grupo = grupos[index];
                 final id = grupo['id'];

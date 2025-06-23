@@ -54,26 +54,38 @@ class _AdminState extends State<Admin> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text("CONTRASEÑA", style: TextStyle(fontSize: 18)),
-              const SizedBox(height: 10),
+              const Text(
+                "CONTRASEÑA",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 18),
               TextField(
                 controller: _controller,
                 obscureText: true,
                 decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
                   labelText: 'Contraseña',
+                  prefixIcon: Icon(Icons.lock_outline, color: Colors.blue),
                 ),
               ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _verificarPassword,
-                child: const Text("INGRESAR"),
+              const SizedBox(height: 28),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _verificarPassword,
+                  child: const Text("INGRESAR"),
+                ),
               ),
             ],
           ),
