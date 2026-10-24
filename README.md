@@ -2,6 +2,13 @@
 
 > A cross-platform Flutter application for managing and publishing university football tournaments.
 
+
+<img src="@/../img/img1.jpg" width="400" alt="screenshot1">
+<img src="@/../img/img2.jpg" width="400" alt="Texto screenshot2">
+<img src="@/../img/img3.jpg" width="400" alt="Texto screenshot3">
+<img src="@/../img/img4.jpg" width="400" alt="Texto ascreenshot4>
+
+
 Torneo UNJFSC is a cross-platform application for managing and publishing university football tournaments. Spectators can consult groups, scheduled matches, scores and standings, while tournament organizers can manage teams, generate round-robin fixtures, schedule matches and update results from an administrative panel.
 
 The application is built as a Flutter client connected to a Supabase backend. It is prepared to run on Android, iOS, web, Windows, macOS and Linux.
